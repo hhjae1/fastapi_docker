@@ -1,52 +1,52 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 from typing import List
-from decimal import Decimal, ROUND_HALF_UP
 
 app = FastAPI()
 
-grade_map = {
-    "A+": 4.5,
-    "A": 4.0,
-    "B+": 3.5,
-    "B": 3.0,
-    "C+": 2.5,
-    "C": 2.0,
-    "D+": 1.5,
-    "D": 1.0,
+# 학점 -> 점수 매핑
+grade_to_score = {
+    "A+": 4.5, "A": 4.0,
+    "B+": 3.5, "B": 3.0,
+    "C+": 2.5, "C": 2.0,
+    "D+": 1.5, "D": 1.0,
     "F": 0.0
 }
 
+# 과목 모델
 class Course(BaseModel):
     course_code: str
     course_name: str
     credits: int
-    grade: str
+    grade: str = Field(..., pattern="^(A\\+|A|B\\+|B|C\\+|C|D\\+|D|F)$")
 
-class StudentRequest(BaseModel):
+# 학생 모델
+class Student(BaseModel):
     student_id: str
     name: str
     courses: List[Course]
 
-@app.post("/student_summary")
-async def calculate_summary(data: StudentRequest):
+# POST /score API
+@app.post("/score")
+def calculate_score(data: Student):
+    total_score = 0.0
     total_credits = 0
-    total_points = Decimal("0.0")
 
     for course in data.courses:
-        credit = course.credits
-        grade = grade_map.get(course.grade, 0.0)
-        total_credits += credit
-        total_points += Decimal(str(credit * grade))
+        score = grade_to_score[course.grade]
+        total_score += score * course.credits
+        total_credits += course.credits
 
-    # 소수점 셋째 자리에서 반올림 (ROUND_HALF_UP)
-    gpa = Decimal(total_points / total_credits).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    if total_credits == 0:
+        raise HTTPException(status_code=400, detail="No valid courses")
+
+    gpa = round(total_score / total_credits + 1e-8, 2)
 
     return {
         "student_summary": {
             "student_id": data.student_id,
             "name": data.name,
-            "gpa": float(gpa),  # Swagger 문서에서 보기 좋게 숫자로 반환
+            "gpa": gpa,
             "total_credits": total_credits
         }
     }
