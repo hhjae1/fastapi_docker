@@ -16,7 +16,7 @@ class Course(BaseModel):
     course_code: str
     course_name: str
     credits: int
-    grade: str = Field(..., regex="^(A\+|A|B\+|B|C\+|C|D\+|D|F)$")
+    grade: str = Field(..., pattern="^(A\\+|A|B\\+|B|C\\+|C|D\\+|D|F)$")
 
 class Student(BaseModel):
     student_id: str
